@@ -5,12 +5,14 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <string.h>
+#include <stdbool.h>
 #include "gamedata.h"
 
 #define PORT 8080
 #define MAX_CLIENTS 4
 #define MAX_TEAMS 2
 #define DEBUG 0
+
 
 void collectClients(int server_fd, struct sockaddr_in address, int client_sockets[]);
 void broadcast(int client_sockets[], char* broadcast_msg);
@@ -20,9 +22,9 @@ void freeTeams(int** teams);
 char* createEmptyBoard();
 void broadcastToWriters(int** teams, char* broadcast_msg);
 void assignWords(char** secret_word);
-void assignQuestions(char* team_questions[MAX_TEAMS][MAX_QUESTIONS]);
+void assignQuestions(char* team_questions[MAX_TEAMS][MAX_QUESTIONS], int* deckIndex);
 void broadcastToGuessers(int** teams, int teamNum, char* broadcast_msg);
-void listenToGuessers(int** teams, int teamNum, char* team_questions[MAX_TEAMS][MAX_QUESTIONS]);
+char listenToGuessers(int** teams, int teamNum, char* team_questions[MAX_TEAMS][MAX_QUESTIONS], bool askedQuestion);
 char listenToWriters(int** teams, int teamNum);
 
 int main() {
@@ -36,6 +38,7 @@ int main() {
     char* board = createEmptyBoard();
     int boardPos = -1;
     char writerMessage[] = "You have been assigned as the writer\n";
+    int deckIndex = 0;
     srand(time(NULL));
 
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -80,9 +83,9 @@ int main() {
 
     assignTeams(client_sockets, teams);
     assignWords(&secret_word);
-    assignQuestions(team_questions);
+    assignQuestions(team_questions, &deckIndex);
 
-    boardPos = 20;
+    boardPos = 19;
     if(DEBUG != 1){
         broadcast(client_sockets, board);
         broadcastToWriters(teams, writerMessage);
@@ -102,16 +105,23 @@ int main() {
                 printf("Broadcast questions to guessers Team: %d\n", i);
                 broadcastToGuessers(teams,i,formatted_msg);
             }
-            listenToGuessers(teams,i,team_questions);
-            char letter = listenToWriters(teams,i);
-            board[boardPos] = letter;
-            broadcast(client_sockets,board);
-            // Implement guesser saying whether writer needs to continue or stop
+            char choice = listenToGuessers(teams,i,team_questions,false);
+            while(choice != GUESSER_END_TURN){
+                char letter = listenToWriters(teams,i);
+                boardPos += 1;
+                board[boardPos] = letter;
+                broadcast(client_sockets,board);
+                if(letter == WRITER_END_TURN){
+                    break;
+                }
+                choice = listenToGuessers(teams,i,team_questions,true);
+            }
+            
+            // Don't forget about case where word is longer than board. (Can do later)
             // Remove question and put a new one after it is used
-            //Broadcast assigned words to writers
 
             //Move to next team line
-            boardPos = 36;
+            boardPos = 35;
         }
         boardPos = 49; //Goes to start of second line for Team 0
     }
@@ -129,17 +139,19 @@ int main() {
     return 0;
 }
 
-void assignQuestions(char* team_questions[MAX_TEAMS][MAX_QUESTIONS]){
+void assignQuestions(char* team_questions[MAX_TEAMS][MAX_QUESTIONS], int* deckIndex){
     int index;
     char* temp;
     for(int i = 0; i < MAX_TEAMS; i++){
         for(int j = 0; j < MAX_QUESTIONS; j++){
-            index = rand() % (LENGTH_QUESTIONS - j);
+            index = rand() % (LENGTH_QUESTIONS - *deckIndex);
             team_questions[i][j] = PHANTOM_QUESTIONS[index];
             temp = PHANTOM_QUESTIONS[index];
-            PHANTOM_QUESTIONS[index] = PHANTOM_QUESTIONS[LENGTH_QUESTIONS - j - 1];
-            PHANTOM_QUESTIONS[LENGTH_QUESTIONS - j - 1] = temp;
+            PHANTOM_QUESTIONS[index] = PHANTOM_QUESTIONS[LENGTH_QUESTIONS - *deckIndex - 1];
+            PHANTOM_QUESTIONS[LENGTH_QUESTIONS - *deckIndex - 1] = temp;
             printf("Team %d Question %d: %s\n", i, j + 1, team_questions[i][j]);
+            *deckIndex += 1;
+            printf("Deck Index: %d\n", *deckIndex);
         }
         printf("\n");
     }
@@ -226,16 +238,23 @@ char listenToWriters(int** teams, int teamNum) {
     char buffer[1024];
     char letter = '\0';
     char* prompt="Please enter a Letter: ";
-    char* error;
+    char* error = "Invalid! Send a single letter (A-Z) or a period (.) to end the turn: ";
 
+
+    char trash[1024];
+    // Keep reading until the buffer is empty
+    while (recv(teams[teamNum][0], trash, sizeof(trash), MSG_DONTWAIT) > 0);
+
+    send(teams[teamNum][0], prompt, strlen(prompt), 0);
     while (letter < 'A' || letter > 'Z') {
         memset(buffer, 0, sizeof(buffer));
-        send(teams[teamNum][0], prompt, strlen(prompt), 0);
-
+        
         int valread = recv(teams[teamNum][0], buffer, sizeof(buffer) - 1, 0);
         
-        if (valread <= 0) continue;
-        if (strlen(buffer) != 2) continue;
+        if (valread != 2){
+            send(teams[teamNum][0], error, strlen(error), 0);
+            continue;
+        }
 
         letter = buffer[0];
 
@@ -243,30 +262,45 @@ char listenToWriters(int** teams, int teamNum) {
             letter -= 32; 
         }
 
-        if (letter >= 'A' && letter <= 'Z') {
+        if ((letter >= 'A' && letter <= 'Z') || letter == WRITER_END_TURN) {
             printf("Team %d Writer sent letter: %c\n", teamNum, letter);
             char msg[64];
             snprintf(msg, sizeof(msg), "The Spirit writes: %c\n", letter);
             printf("%s",msg);
             return letter;
         } else {
-            error = "Invalid! Send a single letter (A-Z).\n";
             send(teams[teamNum][0], error, strlen(error), 0);
         }
     }
+    return '0';
 }
 
-void listenToGuessers(int** teams, int teamNum, char* team_questions[MAX_TEAMS][MAX_QUESTIONS]) {
+char listenToGuessers(int** teams, int teamNum, char* team_questions[MAX_TEAMS][MAX_QUESTIONS], bool askedQuestion) {
     char buffer[1024];
     int choice = -1;
     int num_per_team = MAX_CLIENTS / MAX_TEAMS;
     int leftover = MAX_CLIENTS % MAX_TEAMS;
     int current_team_size = num_per_team + (teamNum < leftover ? 1 : 0);
-    char* error;
+    char error[100];
+    char prompt[100];
+    char trash[1024];
+    if(askedQuestion){
+        snprintf(error, sizeof(error), "Invalid choice! Please enter the letter %c or the letter %c: ", GUESSER_END_TURN, GUESSER_CONTINUE_TURN);
+        snprintf(prompt, sizeof(prompt), "Please End Turn (%c) or Continue Word (%c): ", GUESSER_END_TURN, GUESSER_CONTINUE_TURN);
+    }else{
+        snprintf(error, sizeof(error), "Invalid choice! Please enter a number between 1 and %d: ", MAX_QUESTIONS);
+        snprintf(prompt, sizeof(prompt), "Please Select a Question (1-%d): ", MAX_QUESTIONS);
+    }
 
+    // Flush existing data in the buffers so players can't "pre-type"
+    for (int i = 1; i < current_team_size; i++) {
+        // Keep reading until the buffer is empty
+        while (recv(teams[teamNum][i], trash, sizeof(trash), MSG_DONTWAIT) > 0);
+    }
+
+    broadcastToGuessers(teams,teamNum,prompt);
     // Loop until we get a valid choice (0-4 because of choice -= 1)
     while (choice < 0 || choice >= MAX_QUESTIONS) {
-        broadcastToGuessers(teams,teamNum,"Please Select a Question (1-5): ");
         fd_set readfds;
         FD_ZERO(&readfds);
         int max_sd = 0;
@@ -278,33 +312,51 @@ void listenToGuessers(int** teams, int teamNum, char* team_questions[MAX_TEAMS][
         }
 
         int activity = select(max_sd + 1, &readfds, NULL, NULL, NULL);
-        if (activity < 0) { perror("select error"); return; }
+        if (activity < 0) { continue; }
 
         for (int i = 1; i < current_team_size; i++) {
             int sd = teams[teamNum][i];
             if (FD_ISSET(sd, &readfds)) {
                 int valread = recv(sd, buffer, sizeof(buffer) - 1, 0);
-                if (valread <= 0) continue; // Handle disconnects or empty reads
+
+                if (valread != 2){
+                    send(sd, error, strlen(error), 0);
+                    continue;
+                }
 
                 buffer[valread] = '\0';
                 
-                // atoi returns 0 for non-numeric strings, but 0 is invalid anyway
-                int input_val = atoi(buffer); 
+                if (buffer[0] >= 'a' && buffer[0] <= 'z') {
+                    buffer[0] -= 32; 
+                }
 
-                if (input_val >= 1 && input_val <= MAX_QUESTIONS) {
+                if (!askedQuestion && buffer[0] >= '1' && buffer[0] <= (MAX_QUESTIONS + '0')) {
+                    int input_val = atoi(buffer); 
                     choice = input_val - 1; 
-                    char msg[1048];
+                    char msg[100];
                     printf("Team %d chose question: %s\n", teamNum, team_questions[teamNum][choice]);
                     snprintf(msg, sizeof(msg), "%s\n", team_questions[teamNum][choice]);
                     send(teams[teamNum][0], msg, strlen(msg), 0);
-                    return;
+                    return buffer[0];
+                } else if(askedQuestion && buffer[0] == GUESSER_CONTINUE_TURN){
+                    printf("Team %d chose to ask for another letter\n", teamNum);
+                    char msg[100];
+                    snprintf(msg, sizeof(msg), "Your teammate(s) have asked for another letter.\n");
+                    send(teams[teamNum][0], msg, strlen(msg), 0);
+                    return buffer[0];
+                } else if(askedQuestion && buffer[0] == GUESSER_END_TURN){
+                    printf("Team %d chose to end turn\n", teamNum);
+                    char msg[100];
+                    snprintf(msg, sizeof(msg), "Your teammate(s) have ended the turn.\n");
+                    send(teams[teamNum][0], msg, strlen(msg), 0);
+                    return buffer[0];
                 } else {
-                    error = "Invalid choice! Please enter a number between 1 and 5.\n";
                     send(sd, error, strlen(error), 0);
                 }
             }
         }
     }
+    return '0';
 }
 
 void broadcastToGuessers(int** teams, int teamNum, char* broadcast_msg) {

@@ -2,8 +2,11 @@
 #define GAME_DATA_H
 
 #define LENGTH_WORDS 15
-#define LENGTH_QUESTIONS 12
+#define LENGTH_QUESTIONS 34
 #define MAX_QUESTIONS 5
+#define GUESSER_END_TURN 'E'
+#define GUESSER_CONTINUE_TURN 'C'
+#define WRITER_END_TURN '.'
 
 // 'extern' tells the compiler these live in another file
 extern char* PHANTOM_WORDS[];
