@@ -4,8 +4,8 @@ TARGET = game_server
 
 all: $(TARGET)
 
-$(TARGET): server.c gamedata.c
-	$(CC) $(CFLAGS) -o $(TARGET) server.c gamedata.c
+$(TARGET): server.c gamedata.c gamelogic.c
+	$(CC) $(CFLAGS) -o $(TARGET) server.c gamedata.c gamelogic.c
 
 run: $(TARGET)
 	./$(TARGET)

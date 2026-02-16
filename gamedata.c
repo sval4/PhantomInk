@@ -1,7 +1,7 @@
 #include "gamedata.h"
 
 char* PHANTOM_WORDS[] = {
-    "WATERMELON", "HAMMER", "EIFFEL TOWER", "SNAKE", "MOON", 
+    "WATERMELON", "HAMMER", "TOWER", "SNAKE", "MOON", 
     "COFFEE", "BICYCLE", "CACTUS", "SPIDER", "UMBRELLA", 
     "LIGHTHOUSE", "BREAD", "GUITAR", "PENGUIN", "SUBMARINE"
 };
@@ -23,7 +23,7 @@ char* PHANTOM_QUESTIONS[] = {
     "What temperature is it usually?",
     "Is it sharp, blunt, or smooth?",
     "Does it reflect light or is it dull?",
-    "What would it taste like? (Do not eat!)",
+    "What would it taste like?",
     "How big is it compared to a person?",
     "In which room of a house is it found?",
     "Is it found in the city or the wild?",
