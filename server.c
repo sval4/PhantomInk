@@ -10,8 +10,10 @@ int main() {
     int** teams = (int**) malloc(MAX_TEAMS * sizeof(int*));
     struct sockaddr_in address;
     char broadcast_msg[] = "Welcome to Phantom Ink!!!\n";
-    char* board = createEmptyBoard();
     size_t boardPos;
+    size_t nextLinePos;
+    size_t newLinePos;
+    char* board = createEmptyBoard(&boardPos, &nextLinePos, &newLinePos);
     char writerMessage[] = "You have been assigned as the writer\n";
     int deckIndex = 0;
     srand(time(NULL));
@@ -60,9 +62,6 @@ int main() {
     char word_msg[100];
     snprintf(word_msg, sizeof(word_msg), "The word is %s\n",secret_word);
 
-    boardPos = 19; 
-    int nextLinePos = 16;
-    int newLinePos = 13;
     int lineOffset = 0;
     int guesserSocket;
     int loopCounter = 0;

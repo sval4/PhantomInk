@@ -22,7 +22,7 @@ void broadcast(int client_sockets[], char* broadcast_msg);
 void closeClients(int client_sockets[], int teamNum);
 void assignTeams(int client_sockets[], int** teams);
 void freeTeams(int** teams);
-char* createEmptyBoard();
+char* createEmptyBoard(size_t* boardPos, size_t* nextLinePos, size_t* newLinePos);
 void broadcastToWriters(int** teams, char* broadcast_msg);
 void assignWords(char** secret_word);
 void assignQuestions(char* team_questions[MAX_TEAMS][MAX_QUESTIONS], int* deckIndex);

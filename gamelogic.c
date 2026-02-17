@@ -91,16 +91,25 @@ void freeTeams(int** teams) {
     printf("Team memory cleaned up successfully.\n");
 }
 
-char* createEmptyBoard(){
+char* createEmptyBoard(size_t* boardPos, size_t* nextLinePos, size_t* newLinePos) {
     int numLines = 8;
     char* board = malloc(1024 * sizeof(char));
     if (board == NULL) return NULL;
     board[0] = '\0';
     strcat(board, "\t     Phantom Ink\t\t\n");
+    *boardPos = strlen(board) - 1;
+    char* line = "____________";
+    char* space = "\t  \t";
+    *nextLinePos = strlen(line) + strlen(space);
+    *newLinePos = strlen(line) + 1;
     for (int i = 0; i < numLines; i++) {
-        strcat(board, "____________\t  \t____________\n");
+        strcat(board, line);
+        strcat(board, space);
+        strcat(board, line);
+        strcat(board, "\n");
     }
     strcat(board, "\n\n\n");
+    printf("%s",board);
     return board;
 }
 
