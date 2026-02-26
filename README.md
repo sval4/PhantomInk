@@ -137,5 +137,5 @@ The following features are planned but not yet implemented:
 
 This game is intentionally **minimalist and terminal-driven**.  
 All state is managed server-side.  
-Clients are “dumb terminals” that only send input and display output.
-Currently only supports gameplay with 2 teams
+Clients are “dumb terminals” that only send input and display output.  
+Currently only supports gameplay with 2 teams.
