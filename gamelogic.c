@@ -163,6 +163,7 @@ char listenToGuessers(int** teams, int teamNum, char* team_questions[MAX_TEAMS][
     char prompt[100];
     char trash[1024];
     char character = '\0';
+    char* inputStr;
 
     if(askedQuestion){
         snprintf(error, sizeof(error), "Invalid choice! Please enter the letter %c or the letter %c: ", GUESSER_END_TURN, GUESSER_CONTINUE_TURN);
@@ -198,14 +199,16 @@ char listenToGuessers(int** teams, int teamNum, char* team_questions[MAX_TEAMS][
             if (FD_ISSET(sd, &readfds)) {
                 int valread = recv(sd, buffer, sizeof(buffer) - 1, 0);
                 buffer[valread] = '\0';
-                char *p = buffer;
+                inputStr = buffer;
                 // Skip any leading whitespace or non-printable chars
-                while (*p && (*p <= 32)) p++;
-                if (*p == '\0') {
+                bool isUpperLetter = *inputStr < 65 || *inputStr > 90;
+                bool isLowerLetter = *inputStr < 97 || *inputStr > 122;
+                while (*inputStr && !isUpperLetter && !isLowerLetter) inputStr++;
+                if (*inputStr == '\0') {
                     send(sd, error, strlen(error), 0);
                     continue;
                 }
-                character = toupper(*p);
+                character = toupper(*inputStrs);
 
                 if (!askedQuestion && character >= '1' && character <= (MAX_QUESTIONS + '0')) {
                     int input_val = atoi(buffer); 
@@ -241,6 +244,7 @@ char listenToWriter(int sd, bool isGuesser) {
     char letter = '\0';
     char* prompt="Please enter a Letter: ";
     char* error;
+    char* inputStr;
     if(isGuesser){
         error = "Invalid! Send a single letter (A-Z): ";
     }else{
@@ -255,14 +259,16 @@ char listenToWriter(int sd, bool isGuesser) {
         memset(buffer, 0, sizeof(buffer));
         int valread = recv(sd, buffer, sizeof(buffer) - 1, 0);
         buffer[valread] = '\0';
-        char *p = buffer;
+        inputStr = buffer;
         // Skip any leading whitespace or non-printable chars
-        while (*p && (*p <= 32)) p++;
-        if (*p == '\0') {
+        bool isUpperLetter = *inputStr < 65 || *inputStr > 90;
+        bool isLowerLetter = *inputStr < 97 || *inputStr > 122;
+        while (*inputStr && !isUpperLetter && !isLowerLetter) inputStr++;
+        if (*inputStr == '\0') {
             send(sd, error, strlen(error), 0);
             continue;
         }
-        letter = toupper(*p);
+        letter = toupper(*inputStr);
 
         if ((letter >= 'A' && letter <= 'Z') || (!isGuesser && letter == WRITER_END_TURN)) {
             char msg[64];
