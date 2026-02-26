@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include "gamelogic.h"
 
 void collectClients(int server_fd, struct sockaddr_in address, int client_sockets[]){
@@ -161,6 +162,7 @@ char listenToGuessers(int** teams, int teamNum, char* team_questions[MAX_TEAMS][
     char error[100];
     char prompt[100];
     char trash[1024];
+    char character = '\0';
 
     if(askedQuestion){
         snprintf(error, sizeof(error), "Invalid choice! Please enter the letter %c or the letter %c: ", GUESSER_END_TURN, GUESSER_CONTINUE_TURN);
@@ -195,29 +197,31 @@ char listenToGuessers(int** teams, int teamNum, char* team_questions[MAX_TEAMS][
             *guesserSocket = sd;
             if (FD_ISSET(sd, &readfds)) {
                 int valread = recv(sd, buffer, sizeof(buffer) - 1, 0);
-                if (valread != 2){
+                buffer[valread] = '\0';
+                char *p = buffer;
+                // Skip any leading whitespace or non-printable chars
+                while (*p && (*p <= 32)) p++;
+                if (*p == '\0') {
                     send(sd, error, strlen(error), 0);
                     continue;
                 }
+                character = toupper(*p);
 
-                buffer[valread] = '\0';
-                if (buffer[0] >= 'a' && buffer[0] <= 'z') buffer[0] -= 32; 
-
-                if (!askedQuestion && buffer[0] >= '1' && buffer[0] <= (MAX_QUESTIONS + '0')) {
+                if (!askedQuestion && character >= '1' && character <= (MAX_QUESTIONS + '0')) {
                     int input_val = atoi(buffer); 
                     choice = input_val - 1; 
                     char msg[100];
                     snprintf(msg, sizeof(msg), "%s\n", team_questions[teamNum][choice]);
                     send(teams[teamNum][0], msg, strlen(msg), 0);
-                } else if(!askedQuestion && buffer[0] == GUESSER_GUESS_TURN){
+                } else if(!askedQuestion && character == GUESSER_GUESS_TURN){
                       char msg[100];
                       snprintf(msg, sizeof(msg), "Your teammate is going to guess the word.\n");
                       send(teams[teamNum][0], msg, strlen(msg), 0);
-                } else if(askedQuestion && buffer[0] == GUESSER_CONTINUE_TURN){
+                } else if(askedQuestion && character == GUESSER_CONTINUE_TURN){
                     char msg[100];
                     snprintf(msg, sizeof(msg), "Your teammate(s) have asked for another letter.\n");
                     send(teams[teamNum][0], msg, strlen(msg), 0);
-                } else if(askedQuestion && buffer[0] == GUESSER_END_TURN){
+                } else if(askedQuestion && character == GUESSER_END_TURN){
                     char msg[100];
                     snprintf(msg, sizeof(msg), "Your teammate(s) have ended the turn.\n");
                     send(teams[teamNum][0], msg, strlen(msg), 0);
@@ -225,7 +229,7 @@ char listenToGuessers(int** teams, int teamNum, char* team_questions[MAX_TEAMS][
                     send(sd, error, strlen(error), 0);
                     continue;
                 }
-                return buffer[0];
+                return character;
             }
         }
     }
@@ -250,12 +254,15 @@ char listenToWriter(int sd, bool isGuesser) {
     while (letter < 'A' || letter > 'Z') {
         memset(buffer, 0, sizeof(buffer));
         int valread = recv(sd, buffer, sizeof(buffer) - 1, 0);
-        if (valread != 2){
+        buffer[valread] = '\0';
+        char *p = buffer;
+        // Skip any leading whitespace or non-printable chars
+        while (*p && (*p <= 32)) p++;
+        if (*p == '\0') {
             send(sd, error, strlen(error), 0);
             continue;
         }
-        letter = buffer[0];
-        if (letter >= 'a' && letter <= 'z') letter -= 32; 
+        letter = toupper(*p);
 
         if ((letter >= 'A' && letter <= 'Z') || (!isGuesser && letter == WRITER_END_TURN)) {
             char msg[64];

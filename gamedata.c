@@ -9,7 +9,7 @@ char* PHANTOM_WORDS[] = {
     "CAMERA", "ROBOT", "TEAPOT", "WATERFALL", "DIAMOND"
 };
 
-char* NEW_PHANTOM_QUESTIONS[] = {
+char* PHANTOM_QUESTIONS[] = {
     "What is its weight compared to a brick?",
     "What kind of sound does it make when dropped?",
     "Is it associated with a specific season?",
